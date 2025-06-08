@@ -97,9 +97,9 @@ app.post('/login', (req, res) => {
     const { usuario, senha } = req.body;
 
     // Simulação de autenticação (usuário e senha fixos)
-    if (usuario === 'admin' && senha === 'admin123') {
+    if (usuario === 'admin' && senha === 'admin') {
         req.session.usuarioLogado = true;
-        req.session.nomeUsuario = 'Administrador';
+        req.session.nomeUsuario = 'Usuário';
         
         // Define o cookie com a data/hora do último acesso
         const dataHoraAtual = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
