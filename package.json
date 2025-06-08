@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1"
+  },
+  "name": "projeto_04_ppi",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "devDependencies": {},
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaiqueLima95/Projeto_04_PPI.git"
+  },
+  "author": "Caique Lima",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CaiqueLima95/Projeto_04_PPI/issues"
+  },
+  "homepage": "https://github.com/CaiqueLima95/Projeto_04_PPI#readme",
+  "description": ""
+}
