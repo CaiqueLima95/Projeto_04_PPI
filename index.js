@@ -1,301 +1,377 @@
-import express from 'express';
-import session from 'express-session';
-import cookieParser from 'cookie-parser';
+import express from "express";
+import session from "express-session";
+import cookieParser from "cookie-parser";
 
+const host = "0.0.0.0";
+const port = 5000;
+let listaProdutos = [];
 const app = express();
-const listaProdutos = []; // Nosso "banco de dados" em memória
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Middleware para ler cookies
 
-// Configuração da sessão
 app.use(session({
-    secret: 'chave-secreta-para-produtos', // Troque por uma chave mais segura em produção
+    secret: "M1nh@Senh@Secret@",
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: {
-        maxAge: 1000 * 60 * 30, // Sessão expira em 30 minutos de inatividade
+        maxAge: 1000 * 60 * 15,
+        httpOnly: true,
+        secure: false
     }
 }));
 
-// Middleware para verificar se o usuário está autenticado
-function verificarAutenticacao(req, res, next) {
-    if (req.session.usuarioLogado) {
-        next(); // Se o usuário está na sessão, continua para a próxima rota
-    } else {
-        // Se não estiver logado, exibe uma mensagem de erro
-        res.status(401).send(`
-            <html lang="pt-br">
+app.use(cookieParser());
+
+app.get("/", verificarAutenticacao, (req, res) => {
+    const ultimoLogin = req.cookies.ultimoLogin;
+    const nomeUsuario = req.session.usuario;
+
+    res.send(`
+        <html lang="pt-br">
             <head>
                 <meta charset="UTF-8">
-                <title>Acesso Negado</title>
-                <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+                <title>Gestão de Produtos</title>
             </head>
-            <body class="bg-light">
-                <div class="container mt-5">
-                    <div class="alert alert-danger text-center">
-                        <h1>Acesso Negado!</h1>
-                        <p>Você precisa fazer login para acessar esta página.</p>
-                        <a href="/login" class="btn btn-primary mt-3">Fazer Login</a>
+            <body>
+                <header class="bg-light py-4 border-bottom bg-dark text-white">
+                    <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between">
+                        <h1 class="mb-3">S.G.P</h1>
+                        ${nomeUsuario ? `<p class='text-white'>Usuário: ${nomeUsuario}</p>` : ""}
+                        <nav>
+                            <a href="/cadastroProduto" class="btn btn-primary me-2">Cadastro de Produtos</a>
+                            <a href="/listaProdutos" class="btn btn-secondary me-2">Lista de Produtos</a>
+                            <a href="/logout" class="btn btn-danger">Sair</a>
+                        </nav>
                     </div>
+                    <div class="container mt-2 text-end">
+                        ${ultimoLogin ? "<p class='text-white'>Último login: " + ultimoLogin + "</p>" : ""}
+                    </div>
+                </header>
+                <div class="container mt-5">
+                    <h1 class="text-center">Bem-vindo ao Sistema de Gestão de Produtos</h1>
                 </div>
             </body>
-            </html>
-        `);
-    }
-}
+        </html>
+    `);
+});
 
-// Rota para a página de login (GET)
-app.get('/login', (req, res) => {
+
+app.get("/cadastroProduto", verificarAutenticacao, (req, res) => {
     res.send(`
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
-        <title>Login - Cadastro de Produtos</title>
-        <style>
-            .gradient-custom {
-                background: linear-gradient(to right, rgba(37, 117, 252, 1), rgba(106, 17, 203, 1));
-            }
-        </style>
-    </head>
-    <body>
-        <section class="vh-100 gradient-custom">
-            <div class="container py-5 h-100">
-                <div class="row d-flex justify-content-center align-items-center h-100">
-                    <div class="col-12 col-md-8 col-lg-6 col-xl-5">
-                        <div class="card bg-dark text-white" style="border-radius: 1rem;">
-                            <div class="card-body p-5 text-center">
-                                <div class="mb-md-5 mt-md-4">
-                                    <h2 class="fw-bold mb-2 text-uppercase">Sistema de Produtos</h2>
-                                    <p class="text-white-50 mb-5">Por favor, entre com seu usuário e senha!</p>
-                                    <form method="POST" action="/login">
-                                        <div class="form-outline form-white mb-4">
-                                            <input type="text" id="usuario" name="usuario" class="form-control form-control-lg" required />
-                                            <label class="form-label" for="usuario">Usuário</label>
+        <html lang="pt-br">
+            <head>
+                <meta charset="UTF-8">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+                <title>Cadastro de Produtos</title>
+            </head>
+            <body>
+                    <div class="container mt-5">
+                        <form method="POST" action="/cadastroProduto" class="row g-3 border p-3" novalidate>
+                            <fieldset><legend class="text-center">Cadastro de Produto</legend></fieldset>
+
+                            <div class="col-md-4">
+                                <label for="codigoBarras" class="form-label">Código de Barras</label>
+                                <input type="text" class="form-control" id="codigoBarras" name="codigoBarras">
+                            </div>
+
+                            <div class="col-md-8">
+                                <label for="descricao" class="form-label">Descrição</label>
+                                <input type="text" class="form-control" id="descricao" name="descricao">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="precoCusto" class="form-label">Preço de Custo</label>
+                                <input type="number" step="0.01" class="form-control" id="precoCusto" name="precoCusto">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="precoVenda" class="form-label">Preço de Venda</label>
+                                <input type="number" step="0.01" class="form-control" id="precoVenda" name="precoVenda">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="dataValidade" class="form-label">Data de Validade</label>
+                                <input type="date" class="form-control" id="dataValidade" name="dataValidade">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="quantidade" class="form-label">Quantidade em Estoque</label>
+                                <input type="number" class="form-control" id="quantidade" name="quantidade">
+                            </div>
+
+                            <div class="col-md-8">
+                                <label for="fabricante" class="form-label">Nome do Fabricante</label>
+                                <input type="text" class="form-control" id="fabricante" name="fabricante">
+                            </div>
+
+                            <div class="col-12">
+                                <button class="btn btn-primary" type="submit">Cadastrar</button>
+                                <a class="btn btn-secondary" href="/">Voltar</a>
+                            </div>
+                        </form>
+                    </div>
+            </body>
+        </html>
+    `);
+    res.end();
+});
+
+app.post("/cadastroProduto", verificarAutenticacao, (req, res) => {
+
+    var codigoBarras = req.body.codigoBarras;
+    var descricao = req.body.descricao;
+    var precoCusto = req.body.precoCusto;
+    var precoVenda = req.body.precoVenda;
+    var dataValidade = req.body.dataValidade;
+    var quantidade = req.body.quantidade;
+    var fabricante = req.body.fabricante;
+
+    if (codigoBarras && descricao && precoCusto && precoVenda && dataValidade && quantidade && fabricante) {
+        listaProdutos.push({
+            codigoBarras,
+            descricao,
+            precoCusto,
+            precoVenda,
+            dataValidade,
+            quantidade,
+            fabricante
+        });
+        res.redirect("/listaProdutos");
+    } else {
+        let conteudo = `
+        <html lang="pt-br">
+            <head>
+                <meta charset="UTF-8">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+                <title>Cadastro de Produtos</title>
+            </head>
+            <body>
+                    <div class="container mt-5">
+                        <form method="POST" action="/cadastroProduto" class="row g-3 border p-3" novalidate>
+                            <fieldset><legend class="text-center">Cadastro de Produto</legend></fieldset>
+
+                            <div class="col-md-4">
+                                <label for="codigoBarras" class="form-label">Código de Barras</label>
+                                <input type="text" class="form-control" id="codigoBarras" name="codigoBarras" value="${codigoBarras || ''}">
+                                ${!codigoBarras ? '<span class="text-danger">Informe o código de barras</span>' : ''}
+                            </div>
+
+                            <div class="col-md-8">
+                                <label for="descricao" class="form-label">Descrição</label>
+                                <input type="text" class="form-control" id="descricao" name="descricao" value="${descricao || ''}">
+                                ${!descricao ? '<span class="text-danger">Informe a descrição</span>' : ''}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="precoCusto" class="form-label">Preço de Custo</label>
+                                <input type="number" step="0.01" class="form-control" id="precoCusto" name="precoCusto" value="${precoCusto || ''}">
+                                ${!precoCusto ? '<span class="text-danger">Informe o preço de custo</span>' : ''}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="precoVenda" class="form-label">Preço de Venda</label>
+                                <input type="number" step="0.01" class="form-control" id="precoVenda" name="precoVenda" value="${precoVenda || ''}">
+                                ${!precoVenda ? '<span class="text-danger">Informe o preço de venda</span>' : ''}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="dataValidade" class="form-label">Data de Validade</label>
+                                <input type="date" class="form-control" id="dataValidade" name="dataValidade" value="${dataValidade || ''}">
+                                ${!dataValidade ? '<span class="text-danger">Informe a data de validade</span>' : ''}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="quantidade" class="form-label">Quantidade em Estoque</label>
+                                <input type="number" class="form-control" id="quantidade" name="quantidade" value="${quantidade || ''}">
+                                ${!quantidade ? '<span class="text-danger">Informe a quantidade</span>' : ''}
+                            </div>
+
+                            <div class="col-md-8">
+                                <label for="fabricante" class="form-label">Nome do Fabricante</label>
+                                <input type="text" class="form-control" id="fabricante" name="fabricante" value="${fabricante || ''}">
+                                ${!fabricante ? '<span class="text-danger">Informe o nome do fabricante</span>' : ''}
+                            </div>
+
+                            <div class="col-12">
+                                <button class="btn btn-primary" type="submit">Cadastrar</button>
+                                <a class="btn btn-secondary" href="/">Voltar</a>
+                            </div>
+                        </form>
+                    </div>
+            </body>
+        </html>`;
+        res.send(conteudo);
+        res.end();
+    }
+});
+
+app.get("/listaProdutos", verificarAutenticacao, (req, res) => {
+    let conteudo = `
+        <html lang="pt-br">
+            <head>
+                <meta charset="UTF-8">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+                <title>Lista de Produtos</title>
+            </head>
+            <body>
+                    <div class="container mt-5">
+                        <h3 class="text-center mb-3">Produtos Cadastrados</h3>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Código de Barras</th>
+                                    <th>Descrição</th>
+                                    <th>Preço de Custo</th>
+                                    <th>Preço de Venda</th>
+                                    <th>Validade</th>
+                                    <th>Qtd</th>
+                                    <th>Fabricante</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                        for (let prod of listaProdutos) {
+                            conteudo += `
+                                <tr>
+                                    <td>${prod.codigoBarras}</td>
+                                    <td>${prod.descricao}</td>
+                                    <td>R$ ${parseFloat(prod.precoCusto).toFixed(2)}</td>
+                                    <td>R$ ${parseFloat(prod.precoVenda).toFixed(2)}</td>
+                                    <td>${prod.dataValidade}</td>
+                                    <td>${prod.quantidade}</td>
+                                    <td>${prod.fabricante}</td>
+                                </tr>`;
+                        }
+
+                        conteudo += `</tbody>
+                                        </table>
+                                        <a class="btn btn-secondary" href="/cadastroProduto">Cadastrar um produto</a>
+                    </div>
+            </body>
+        </html>`;
+
+    res.send(conteudo);
+});
+
+app.get("/login", (req, res) => {
+    res.send(`
+        <html lang="pt-br">
+            <head>
+                <meta charset="UTF-8">
+                <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
+                <title>Login do Sistema</title>
+                <style>
+                    body {
+                        background-color: #F1FFFA;
+                    }
+                    #login {
+                        margin-top: 100px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="login">
+                    <h3 class="text-center text-black pt-5">Acessar o Sistema</h3>
+                    <div class="container">
+                        <div class="row justify-content-center align-items-center">
+                            <div class="col-md-6">
+                                <div class="col-md-12">
+                                    <form action="/login" method="post">
+                                        <h3 class="text-center text-info">Login</h3>
+                                        <div class="form-group">
+                                            <label class="text-info">Usuário:</label><br>
+                                            <input type="text" name="usuario" class="form-control">
                                         </div>
-                                        <div class="form-outline form-white mb-4">
-                                            <input type="password" id="senha" name="senha" class="form-control form-control-lg" required />
-                                            <label class="form-label" for="senha">Senha</label>
+                                        <div class="form-group">
+                                            <label class="text-info">Senha:</label><br>
+                                            <input type="password" name="senha" class="form-control">
                                         </div>
-                                        <button class="btn btn-outline-light btn-lg px-5" type="submit">Login</button>
+                                        <div class="form-group">
+                                            <input type="submit" class="btn btn-info btn-md" value="Entrar">
+                                        </div>
                                     </form>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
-    </body>
-    </html>
-    `);
-});
-
-// Rota para processar o login (POST)
-app.post('/login', (req, res) => {
-    const { usuario, senha } = req.body;
-
-    // Simulação de autenticação (usuário e senha fixos)
-    if (usuario === 'admin' && senha === 'admin') {
-        req.session.usuarioLogado = true;
-        req.session.nomeUsuario = 'Usuário';
-        
-        // Define o cookie com a data/hora do último acesso
-        const dataHoraAtual = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-        res.cookie('ultimoAcesso', dataHoraAtual, { maxAge: 900000, httpOnly: true });
-
-        res.redirect('/produtos'); // Redireciona para a tela de produtos
-    } else {
-        res.send(`
-        <html lang="pt-br">
-        <head><title>Erro</title><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"></head>
-        <body>
-            <div class="container mt-5">
-                <div class="alert alert-danger">Usuário ou senha inválidos!</div>
-                <a href="/login" class="btn btn-primary">Tentar Novamente</a>
-            </div>
-        </body>
+            </body>
         </html>
-        `);
-    }
-});
-
-// Rota de Logout
-app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            console.log(err);
-        }
-        res.redirect('/login');
-    });
-});
-
-
-// Rota para o formulário de cadastro (protegida)
-app.get('/cadastro', verificarAutenticacao, (req, res) => {
-    res.send(`
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Cadastro de Produtos</title>
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
-                <a class="navbar-brand" href="/produtos">Sistema de Produtos</a>
-                <div class="collapse navbar-collapse">
-                    <ul class="navbar-nav mr-auto">
-                        <li class="nav-item"><a class="nav-link" href="/produtos">Ver Produtos</a></li>
-                        <li class="nav-item active"><a class="nav-link" href="/cadastro">Cadastrar Novo</a></li>
-                    </ul>
-                    <span class="navbar-text text-white">Bem-vindo, ${req.session.nomeUsuario}!</span>
-                    <a href="/logout" class="btn btn-outline-danger ml-3">Sair</a>
-                </div>
-            </div>
-        </nav>
-        <div class="container mt-5">
-            <h2 class="text-center">Cadastrar Novo Produto</h2>
-            <form method="POST" action="/cadastro" class="mt-4 p-4 border rounded bg-light">
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="codigo_barras">Código de Barras</label>
-                        <input type="text" class="form-control" id="codigo_barras" name="codigo_barras" required>
-                    </div>
-                    <div class="form-group col-md-6">
-                        <label for="fabricante">Nome do Fabricante</label>
-                        <input type="text" class="form-control" id="fabricante" name="fabricante" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="descricao">Descrição do Produto</label>
-                    <input type="text" class="form-control" id="descricao" name="descricao" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-md-4">
-                        <label for="preco_custo">Preço de Custo (R$)</label>
-                        <input type="number" step="0.01" class="form-control" id="preco_custo" name="preco_custo" required>
-                    </div>
-                    <div class="form-group col-md-4">
-                        <label for="preco_venda">Preço de Venda (R$)</label>
-                        <input type="number" step="0.01" class="form-control" id="preco_venda" name="preco_venda" required>
-                    </div>
-                    <div class="form-group col-md-4">
-                        <label for="qtd_estoque">Quantidade em Estoque</label>
-                        <input type="number" class="form-control" id="qtd_estoque" name="qtd_estoque" required>
-                    </div>
-                </div>
-                 <div class="form-group">
-                    <label for="data_validade">Data de Validade</label>
-                    <input type="date" class="form-control" id="data_validade" name="data_validade" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Cadastrar</button>
-            </form>
-        </div>
-    </body>
-    </html>
     `);
 });
 
-// Rota para processar o cadastro do produto (protegida)
-app.post('/cadastro', verificarAutenticacao, (req, res) => {
-    const { codigo_barras, descricao, preco_custo, preco_venda, data_validade, qtd_estoque, fabricante } = req.body;
-    
-    // Adiciona o novo produto à lista
-    listaProdutos.push({
-        codigo_barras,
-        descricao,
-        preco_custo,
-        preco_venda,
-        data_validade,
-        qtd_estoque,
-        fabricante
-    });
-
-    // Redireciona para a página que lista os produtos
-    res.redirect('/produtos');
-});
-
-// Rota para exibir os produtos cadastrados (protegida)
-app.get('/produtos', verificarAutenticacao, (req, res) => {
-    const ultimoAcesso = req.cookies.ultimoAcesso || 'Primeiro acesso';
-
-    let tabelaHtml = '';
-    if (listaProdutos.length === 0) {
-        tabelaHtml = `<tr><td colspan="7" class="text-center">Nenhum produto cadastrado ainda.</td></tr>`;
-    } else {
-        tabelaHtml = listaProdutos.map(produto => `
-            <tr>
-                <td>${produto.codigo_barras}</td>
-                <td>${produto.descricao}</td>
-                <td>${produto.fabricante}</td>
-                <td>R$ ${produto.preco_custo}</td>
-                <td>R$ ${produto.preco_venda}</td>
-                <td>${new Date(produto.data_validade).toLocaleDateString('pt-BR')}</td>
-                <td>${produto.qtd_estoque}</td>
-            </tr>
-        `).join('');
+app.post("/login", (req, res) => {
+    const usuario = req.body.usuario;
+    const senha = req.body.senha;
+    if (usuario === "admin" && senha === "123") {
+        req.session.logado = true;
+        req.session.usuario = usuario; 
+        const agora = new Date();
+        res.cookie('ultimoLogin', agora.toLocaleString(), { maxAge: 1000 * 60 * 60 * 24 * 30 });
+        res.redirect("/");
     }
-
-    res.send(`
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Produtos Cadastrados</title>
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
-                <span class="navbar-text text-white-50">
-                    Último Acesso: ${ultimoAcesso}
-                </span>
-                <div class="collapse navbar-collapse justify-content-center">
-                    <ul class="navbar-nav">
-                        <li class="nav-item active"><a class="nav-link" href="/produtos">Ver Produtos</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/cadastro">Cadastrar Novo</a></li>
-                    </ul>
-                </div>
-                <span class="navbar-text text-white mr-3">Bem-vindo, ${req.session.nomeUsuario}!</span>
-                <a href="/logout" class="btn btn-outline-danger">Sair</a>
-            </div>
-        </nav>
-
-        <div class="container mt-5">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Produtos Cadastrados</h2>
-                <a href="/cadastro" class="btn btn-success">Adicionar Novo Produto</a>
-            </div>
-            <table class="table table-striped table-bordered">
-                <thead class="thead-dark">
-                    <tr>
-                        <th>Cód. Barras</th>
-                        <th>Descrição</th>
-                        <th>Fabricante</th>
-                        <th>Preço Custo</th>
-                        <th>Preço Venda</th>
-                        <th>Validade</th>
-                        <th>Estoque</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tabelaHtml}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    `);
+    else {
+        res.send(`  <html lang="pt-br">
+                        <head>
+                            <meta charset="UTF-8">
+                            <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
+                            <title>Login do Sistema</title>
+                             <style>
+                                body {
+                                    background-color: #F1FFFA;
+                                }
+                                #login {
+                                    margin-top: 100px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div id="login">
+                                <h3 class="text-center text-black pt-5">Acessar o Sistema</h3>
+                                <div class="container">
+                                    <div class="row justify-content-center align-items-center">
+                                        <div class="col-md-6">
+                                            <div class="col-md-12">
+                                                <form action="/login" method="post">
+                                                    <h3 class="text-center text-info">Login</h3>
+                                                    <div class="form-group">
+                                                        <label class="text-info">Usuário:</label><br>
+                                                        <input type="text" name="usuario" class="form-control">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label class="text-info">Senha:</label><br>
+                                                        <input type="password" name="senha" class="form-control">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <input type="submit" class="btn btn-info btn-md" value="Entrar">
+                                                    </div>
+                                                    <span class="text-danger">Usuario ou senha errados!</span>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </body>
+                    </html>`);
+    }
 });
 
-// Página inicial redireciona para o login
-app.get('/', (req, res) => {
-    res.redirect('/login');
+function verificarAutenticacao(req, res, next) {
+    if (req.session.logado){
+        next();
+    } 
+    else{
+        res.redirect("/login");
+    }
+}
+
+app.get("/logout", (req, res) => {
+    req.session.destroy();
+    res.redirect("/login");
 });
 
-
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+app.listen(port, host, () => {
+    console.log(`Servidor em execução em http://${host}:${port}/`);
 });
